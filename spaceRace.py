@@ -1,5 +1,4 @@
 # Space race, inspired by Omega race
-# Test comment
 import sys, pygame
 import time
 import math
@@ -12,8 +11,11 @@ ScreenRect = pygame.Rect( 0, 0, ScreenWidth, ScreenHeight)
 InnerBorderOffset = 200
 InnerBorderRect = pygame.Rect( InnerBorderOffset, InnerBorderOffset,
                                ScreenWidth - 2*InnerBorderOffset, ScreenHeight - 2*InnerBorderOffset)
+TextRect = pygame.Rect( InnerBorderOffset + InnerBorderRect.width // 4, InnerBorderOffset + 50,
+                       200, 100)
 PlayerStartLoc = ( 100, 100)
 ComputerStartLoc = PlayerStartLoc
+StartLine = pygame.Rect( ScreenWidth // 2, 0, 2, InnerBorderOffset)
 TrackCorners = (( InnerBorderOffset // 2, InnerBorderOffset // 2),
     ( ScreenWidth - InnerBorderOffset // 2, InnerBorderOffset // 2),
     ( ScreenWidth - InnerBorderOffset // 2, ScreenHeight - InnerBorderOffset // 2),
@@ -22,14 +24,19 @@ TrackCorners = (( InnerBorderOffset // 2, InnerBorderOffset // 2),
 # Create screen
 screen = pygame.display.set_mode( DisplaySize)
 
+# init font
+pygame.font.init() # you have to call this at the start, 
+                   # if you want to use this module.
+GameFont = pygame.font.SysFont('Comic Sans MS', 20)
+    
 # Critical spaceship params
 RotationRate = 2
 PlayerSpaceshipAcc = 70.0
 PlayerSpaceshipDec = 70.0
 AISpaceshipAcc = 80.0
 AISpaceshipDec = 80.0
-AITargetSpeed = 200
-MaxSpeed = 200
+AITargetSpeed = 500
+MaxSpeed = 500
 
 # Misc
 BounceVelLoss = .5
@@ -38,9 +45,18 @@ AITargetSpeedThreshold = 5
 TrackListPointCount = 23
 
 # AI tuning
-CornerApproachMaxThreshold = 200
+CornerApproachMaxThreshold = 300
 CornerApproachMinThreshold = 50
 CornerApproachSpeed = MaxSpeed*.3
+
+def Distance( p1, p2):
+    return math.sqrt( (p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2)
+
+def TrackPointsListMultiplier( v1, v2, x):
+    return [ v1[i] + v2[i] * x for i in range(2)]
+
+def AveragePoint( p1, p2):
+    return ( (p1[0] + p2[0]) // 2, ( p1[1] + p2[1]) // 2)
 
 class Report:
     def __init__( self, interval):
@@ -61,9 +77,6 @@ report4 = Report( .5)
 report5 = Report( .5)
 report6 = Report( .1)
 report7 = Report( .3)
-
-def Distance( p1, p2):
-    return math.sqrt( (p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2)
         
 class Velocity:
     def __init__( self, initVel):
@@ -114,7 +127,9 @@ class Coords:
     @y.setter
     def y( self, argY):
         self.coords = ( self.coords[0], argY)
-
+    def copy( self):
+        return Coords( self.coords)
+    
 class Spaceship:
     def __init__(self, bitmapFile, initPos, angle, vel):
         self.vel = vel
@@ -129,7 +144,9 @@ class Spaceship:
         self.acceleration = 0.0
         self.rotationRate = 0.0
         self.initialRotate()
-
+        self.lapCounter = -1
+        self.startLineCollision = False
+        
     def updateVel( self, delta):
         self.vel.accelerate( self.acceleration * delta, self.angle)
         
@@ -180,9 +197,22 @@ class Spaceship:
             self.pos.y = newY
         
     def move( self, delta):
+        prevPos = self.pos.copy()
         self.updateVel( delta)
         self.updatePos( delta)
+        self.countLaps( prevPos)
 
+    def countLaps( self, prevPos):
+        tempRect = pygame.Rect( prevPos.x, prevPos.y, abs( self.pos.x - prevPos.x), abs( self.pos.y - prevPos.y))
+        if ( tempRect.colliderect( StartLine)):
+            self.startLineCollision = True
+        elif self.startLineCollision:
+            # Count lap if we crossed in positive x direction
+            if self.vel.x > 0:
+                self.lapCounter += 1                
+                print( 'lap')
+                self.startLineCollision = False
+            
     def initialRotate( self):
         rotationAngle = math.degrees( self.angle - self.originAngle)
         self.image = pygame.transform.rotate( self.imageCopy, rotationAngle)
@@ -264,11 +294,10 @@ class PlayerSpaceship( Spaceship):
     
 class AISpaceship( Spaceship):
     def __init__( self, bitmapFile, initPos, angle, vel,\
-                  trackPointsList, trackPointsCorners):
+                  trackPointsList):
         Spaceship.__init__( self, bitmapFile, initPos, angle, vel)
         self.lastPointIdx = -1
         self.trackPointsList = trackPointsList
-        self.trackPointsCorners = trackPointsCorners
     def startAcceleration( self):
         self.acceleration = AISpaceshipAcc
                 
@@ -276,7 +305,7 @@ class AISpaceship( Spaceship):
         self.acceleration = -AISpaceshipDec
 
     def nearCorner( self):
-        for p in self.trackPointsCorners:
+        for p in TrackCorners:
             if Distance( p, self.pos.coords) <= CornerApproachMaxThreshold\
                 and Distance( p, self.pos.coords) >= CornerApproachMinThreshold:
                 return p
@@ -291,20 +320,10 @@ class AISpaceship( Spaceship):
 
     def getCurrentTargetPoint( self):
         # Find closest point
-        minDistance = 1000000
-        minDistancePointIdx = 0
-        for idx, p in enumerate( self.trackPointsList):
-            tempDistance = Distance( self.pos.coords, p)
-            if tempDistance < minDistance:
-                minDistance = tempDistance
-                minDistancePointIdx = idx
+        idx, p = self.trackPointsList.findClosestPoint( self.pos.coords)
         # Next point
-        tempIdx = minDistancePointIdx
-        tempIdx += 1
-        tempIdx %= len( self.trackPointsList)
-        nextPoint = self.trackPointsList[tempIdx]
-
-        return tempIdx, nextPoint
+        nextIdx, nextPoint = self.trackPointsList.nextPoint( idx)
+        return nextIdx, nextPoint
 
     def brakeForCorner( self, delta):
         cornerPoint = self.nearCorner()
@@ -323,13 +342,13 @@ class AISpaceship( Spaceship):
            self.lastPointIdx - nextPointIdx < 2:
             #report6.report( 'Dont move backwards; last %d next %d' % ( self.lastPointIdx, nextPointIdx))
             nextPointIdx = self.lastPointIdx
-            nextPoint = self.trackPointsList[nextPointIdx]
+            nextPoint = self.trackPointsList.list[nextPointIdx]
         else:
             self.lastPointIdx = nextPointIdx
         nextX, nextY = nextPoint
         # next point angle
         newAngle = math.atan2( -(nextY - self.pos.y), nextX - self.pos.x)
-        #report1.report( 'AI seeking point; idx %d %s' % ( tempIdx, nextPoint))
+        report1.report( 'AI seeking point; idx %d %s' % ( nextPointIdx, nextPoint))
         #report2.report( 'AI current angle %s; desired angle %s' % ( self.angle, newAngle))
         # Steer towards point
         if abs(newAngle - self.angle) > math.radians( 5):
@@ -357,81 +376,80 @@ class AISpaceship( Spaceship):
             else:
                 self.stopAcceleration()
                 self.stopDeceleration()
+
+class TrackPointsList():
+    def __init__( self):
+        # Build list of points used to guide computer AI
+        # First find starting point
+        firstX, firstY = PlayerStartLoc
+        firstY = InnerBorderOffset // 2
+        trackPointsList = [ ( firstX, firstY)]
+        nextX = firstX
+        nextY = firstY
+        direction = ( 1, 0)
+        screenPerim = 2*screen.get_rect().width + 2*screen.get_rect().height
+        innerBorderPerim = 2*InnerBorderRect.width + 2*InnerBorderRect.height
+        perim = ( screenPerim + innerBorderPerim) // 2
+        pointInc = perim //(TrackListPointCount - 1)
+        self.list = [ ( firstX, firstY) ]
+        for i in range( TrackListPointCount):
+            newPoint = TrackPointsListMultiplier( ( nextX, nextY), direction, pointInc)
+            nextX, nextY = newPoint
+            if direction == ( 1, 0):
+                if nextX > ScreenWidth - InnerBorderOffset // 2:
+                    direction = ( 0, 1)
+                    newPoint = AveragePoint( self.list[-1], newPoint)
+            elif direction == ( 0, 1):
+                if nextY > ScreenHeight - InnerBorderOffset // 2:
+                    direction = ( -1, 0)
+                    newPoint = AveragePoint( self.list[-1], newPoint)
+            elif direction == ( -1, 0):
+                if nextX < InnerBorderOffset // 2:
+                    direction = ( 0, -1)
+                    newPoint = AveragePoint( self.list[-1], newPoint)
+            else:
+                if nextY < InnerBorderOffset // 2:
+                    direction = ( 1, 0)
+                    newPoint = AveragePoint( self.list[-1], newPoint)
+            nextX, nextY = newPoint
+            #print( 'newPoint %s' % str(newPoint))
+            self.list.append( newPoint)
             
-                    
-def TrackPointsListMultiplier( v1, v2, x):
-    return [ v1[i] + v2[i] * x for i in range(2)]
-
-def AveragePoint( p1, p2):
-    return ( (p1[0] + p2[0]) // 2, ( p1[1] + p2[1]) // 2)
-
-def CreateTrackPointsList():
-    # Build list of points used to guide computer AI
-    # First find starting point
-    firstX, firstY = PlayerStartLoc
-    firstY = InnerBorderOffset // 2
-    trackPointsList = [ ( firstX, firstY)]
-    nextX = firstX
-    nextY = firstY
-    direction = ( 1, 0)
-    screenPerim = 2*screen.get_rect().width + 2*screen.get_rect().height
-    innerBorderPerim = 2*InnerBorderRect.width + 2*InnerBorderRect.height
-    perim = ( screenPerim + innerBorderPerim) // 2
-    pointInc = perim //(TrackListPointCount - 1)
-    trackPointsList = [ ( firstX, firstY) ]
-    for i in range( TrackListPointCount):
-        newPoint = TrackPointsListMultiplier( ( nextX, nextY), direction, pointInc)
-        nextX, nextY = newPoint
-        if direction == ( 1, 0):
-            if nextX > ScreenWidth - InnerBorderOffset // 2:
-                direction = ( 0, 1)
-                newPoint = AveragePoint( trackPointsList[-1], newPoint)
-        elif direction == ( 0, 1):
-            if nextY > ScreenHeight - InnerBorderOffset // 2:
-                direction = ( -1, 0)
-                newPoint = AveragePoint( trackPointsList[-1], newPoint)
-        elif direction == ( -1, 0):
-            if nextX < InnerBorderOffset // 2:
-                direction = ( 0, -1)
-                newPoint = AveragePoint( trackPointsList[-1], newPoint)
-        else:
-            if nextY < InnerBorderOffset // 2:
-                direction = ( 1, 0)
-                newPoint = AveragePoint( trackPointsList[-1], newPoint)
-        nextX, nextY = newPoint
-        trackPointsList.append( newPoint)
-    return trackPointsList
-
-def CreateTracksPointListCorners( trackPointsList):
-    trackPointsCorners = []
-    for c in TrackCorners:
+    def findClosestPoint( self, pos):
         minDistance = 1000000
-        minIdx = -1
-        for idx, p in enumerate( trackPointsList):
-            distance = Distance( c, p)
-            if distance < minDistance:
-                minIdx = idx
-                minDistance = distance
-        trackPointsCorners.append( trackPointsList[ minIdx])
-    #print( 'trackPointsListCorners %s' % trackPointsCorners)
-    return trackPointsCorners
+        minDistancePointIdx = 0
+        for idx, p in enumerate( self.list):
+            tempDistance = Distance( pos, p)
+            if tempDistance < minDistance:
+                minDistance = tempDistance
+                minDistancePointIdx = idx
+        return minDistancePointIdx, self.list[minDistancePointIdx]
 
-#def CreateTrackPointsList2():
-#    return (( InnerBorderOffset // 2, InnerBorderOffset // 2),
-#              (ScreenWidth - InnerBorderOffset // 2, InnerBorderOffset // 2),
-#              (ScreenWidth - InnerBorderOffset // 2, ScreenHeight - InnerBorderOffset // 2),
-#              (InnerBorderOffset // 2, ScreenHeight - InnerBorderOffset // 2))
+    def nextPoint( self, idx):
+        nextIdx = idx + 1
+        nextIdx %= len(self.list)
+        report5.report( 'idx %d; next idx %d' % ( idx, nextIdx))
+        return nextIdx, self.list[nextIdx]
+    
+    def draw( self):
+        for p in self.list:
+            pygame.draw.circle( screen, pygame.Color('White'), p, 5)
+    
+def DrawLapCounters( playerShip, AIShip):
+    text = "Player laps: %d     Computer laps: %d" % (playerShip.lapCounter, AIShip.lapCounter)
+    textSurface = GameFont.render( text, False, pygame.Color('White'))
+    pygame.draw.rect( screen, pygame.Color('white'), StartLine, 1)
+    screen.blit( textSurface, TextRect)
     
 pygame.init()
 black = 0, 0, 0
 
-trackPointsList = CreateTrackPointsList()
-trackPointsCorners = CreateTracksPointListCorners( trackPointsList)
+trackPointsList = TrackPointsList()
 
 spaceshipPlayer = PlayerSpaceship( "spaceship1.bmp", PlayerStartLoc, 0,
                              Velocity( (0.0, 0.0)))
 spaceshipComputer = AISpaceship( "spaceship3.bmp", ComputerStartLoc, 0,
-                             Velocity((15.0, 0.0)), trackPointsList, trackPointsCorners)
+                             Velocity((15.0, 0.0)), trackPointsList)
 prevTime = time.clock()
 
 
@@ -449,10 +467,10 @@ while 1:
 
     screen.fill(black)
     pygame.draw.rect( screen, pygame.Color('White'), InnerBorderRect, 1)
-    spaceshipPlayer.draw()
     spaceshipComputer.draw()
-    for p in trackPointsList:
-        pygame.draw.circle( screen, pygame.Color('White'), p, 5)
+    spaceshipPlayer.draw()
+    trackPointsList.draw()
+    DrawLapCounters( spaceshipPlayer, spaceshipComputer)
     pygame.display.flip()
 
     delta = currentTime - prevTime
