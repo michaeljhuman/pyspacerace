@@ -43,6 +43,8 @@ BounceVelLoss = .5
 RotationThreshold = math.pi*2 * 5/360
 AITargetSpeedThreshold = 5
 TrackListPointCount = 23
+TrackPointListVertCount = 5
+TrackPointListHorzCount = 10
 
 # AI tuning
 CornerApproachMaxThreshold = 300
@@ -143,14 +145,14 @@ class Spaceship:
         self.lastAngle = angle
         self.acceleration = 0.0
         self.rotationRate = 0.0
-        self.initialRotate()
+        self._initialRotate()
         self.lapCounter = -1
         self.startLineCollision = False
         
-    def updateVel( self, delta):
+    def _updateVel( self, delta):
         self.vel.accelerate( self.acceleration * delta, self.angle)
         
-    def updateAngle( self, delta):
+    def _updateAngle( self, delta):
         self.angle += self.rotationRate * delta
         if self.angle < -math.pi:
             self.angle += math.pi * 2
@@ -162,7 +164,7 @@ class Spaceship:
         newY = self.pos.y + self.vel.y * delta
         return ( newX, newY)
     
-    def updatePos( self, delta):
+    def _updatePos( self, delta):
         newX, newY = self.computeNewPos( delta)
         
         # Check for outside collision with x move
@@ -198,11 +200,11 @@ class Spaceship:
         
     def move( self, delta):
         prevPos = self.pos.copy()
-        self.updateVel( delta)
-        self.updatePos( delta)
-        self.countLaps( prevPos)
+        self._updateVel( delta)
+        self._updatePos( delta)
+        self._countLaps( prevPos)
 
-    def countLaps( self, prevPos):
+    def _countLaps( self, prevPos):
         tempRect = pygame.Rect( prevPos.x, prevPos.y, abs( self.pos.x - prevPos.x), abs( self.pos.y - prevPos.y))
         if ( tempRect.colliderect( StartLine)):
             self.startLineCollision = True
@@ -213,13 +215,13 @@ class Spaceship:
                 print( 'lap')
                 self.startLineCollision = False
             
-    def initialRotate( self):
+    def _initialRotate( self):
         rotationAngle = math.degrees( self.angle - self.originAngle)
         self.image = pygame.transform.rotate( self.imageCopy, rotationAngle)
         self.rect = self.image.get_rect( center=self.rect.center)
         
     def rotate( self, delta):
-        self.updateAngle( delta)
+        self._updateAngle( delta)
         if abs(self.angle - self.lastAngle) > RotationThreshold:
             # Rotate image
             rotationAngle = math.degrees( self.angle - self.originAngle)
@@ -377,44 +379,33 @@ class AISpaceship( Spaceship):
                 self.stopAcceleration()
                 self.stopDeceleration()
 
-class TrackPointsList():
+class TrackPointsList:
     def __init__( self):
-        # Build list of points used to guide computer AI
-        # First find starting point
-        firstX, firstY = PlayerStartLoc
-        firstY = InnerBorderOffset // 2
-        trackPointsList = [ ( firstX, firstY)]
-        nextX = firstX
-        nextY = firstY
-        direction = ( 1, 0)
-        screenPerim = 2*screen.get_rect().width + 2*screen.get_rect().height
-        innerBorderPerim = 2*InnerBorderRect.width + 2*InnerBorderRect.height
-        perim = ( screenPerim + innerBorderPerim) // 2
-        pointInc = perim //(TrackListPointCount - 1)
-        self.list = [ ( firstX, firstY) ]
-        for i in range( TrackListPointCount):
-            newPoint = TrackPointsListMultiplier( ( nextX, nextY), direction, pointInc)
-            nextX, nextY = newPoint
-            if direction == ( 1, 0):
-                if nextX > ScreenWidth - InnerBorderOffset // 2:
-                    direction = ( 0, 1)
-                    newPoint = AveragePoint( self.list[-1], newPoint)
-            elif direction == ( 0, 1):
-                if nextY > ScreenHeight - InnerBorderOffset // 2:
-                    direction = ( -1, 0)
-                    newPoint = AveragePoint( self.list[-1], newPoint)
-            elif direction == ( -1, 0):
-                if nextX < InnerBorderOffset // 2:
-                    direction = ( 0, -1)
-                    newPoint = AveragePoint( self.list[-1], newPoint)
+        self.list = []
+        for idx, p1 in enumerate( TrackCorners):
+            p2 = TrackCorners[(idx+1)%len(TrackCorners)]
+            print( 'p1 %s; p2 %s' % (str( p1), str( p2)))
+            if idx == 0 or idx == 2:
+                for i in range( TrackPointListHorzCount):
+                    p = (int((p1[0] + (p2[0] - p1[0]) / TrackPointListHorzCount * i)),
+                        p1[1])
+                    self.list.append( p)      
             else:
-                if nextY < InnerBorderOffset // 2:
-                    direction = ( 1, 0)
-                    newPoint = AveragePoint( self.list[-1], newPoint)
-            nextX, nextY = newPoint
-            #print( 'newPoint %s' % str(newPoint))
-            self.list.append( newPoint)
-            
+                for i in range( TrackPointListVertCount):
+                    p = (p1[0],
+                        int( p1[1] + (p2[1] - p1[1]) / TrackPointListVertCount * i))
+                    self.list.append( p)      
+        print( 'self.list %s', str( self.list))
+        # Find closest point to start position
+        startIdx, startPoint = self.findClosestPoint( PlayerStartLoc)
+        # Remove corners and reorder
+        tempList = []
+        for i in range( startIdx, startIdx + len( self.list)):
+            p = self.list[i%len(self.list)]
+            if not p in TrackCorners:
+                tempList.append( self.list[i])
+        self.list = tempList
+        
     def findClosestPoint( self, pos):
         minDistance = 1000000
         minDistancePointIdx = 0
