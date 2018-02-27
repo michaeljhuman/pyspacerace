@@ -338,6 +338,9 @@ class AISpaceship( Spaceship):
         else:
             return False
         
+    def update(self, delta):
+        
+        
     def AI( self, delta):
         nextPointIdx, nextPoint = self.getCurrentTargetPoint()
         if nextPointIdx < self.lastPointIdx and\
@@ -375,6 +378,96 @@ class AISpaceship( Spaceship):
             elif temp < -AITargetSpeedThreshold:
                 self.stopAcceleration()
                 self.startDeceleration()
+            else:
+                self.stopAcceleration()
+                self.stopDeceleration()
+
+class TomSpaceship( Spaceship):
+    def __init__( self, bitmapFile, initPos, angle, vel,\
+                  trackPointsList):
+        Spaceship.__init__( self, bitmapFile, initPos, angle, vel)
+        self.lastPointIdx = -1
+        self.trackPointsList = trackPointsList
+    def _startAcceleration( self):
+        self.acceleration = AISpaceshipAcc
+
+    def _startDeceleration( self):
+        self.acceleration = -AISpaceshipDec
+
+    def _nearCorner( self):
+        for p in TrackCorners:
+            if Distance( p, self.pos.coords) <= CornerApproachMaxThreshold\
+               and Distance( p, self.pos.coords) >= CornerApproachMinThreshold:
+                return p
+        return None
+
+    def _movingTowards( self, point, delta):
+        newPos = self.computeNewPos( delta)
+        if Distance( newPos, point) < Distance( self.pos.coords, point):
+            return True
+        else:
+            return False
+
+    def _getCurrentTargetPoint( self):
+        # Find closest point
+        idx, p = self.trackPointsList.findClosestPoint( self.pos.coords)
+        # Next point
+        nextIdx, nextPoint = self.trackPointsList.nextPoint( idx)
+        return nextIdx, nextPoint
+
+    def _brakeForCorner( self, delta):
+        cornerPoint = self._nearCorner()
+        if cornerPoint != None and self.vel.speed() > CornerApproachSpeed\
+           and self._movingTowards( cornerPoint, delta):
+            report4.report( 'Braking for corner %s; distance %f' %\
+                            (str(cornerPoint), Distance( cornerPoint, self.pos.coords)))
+            self._startDeceleration()
+            return True
+        else:
+            return False
+
+    def update(self, delta):
+        self.AI(delta)
+        self.move(delta)
+        self.rotate(delta)
+
+    def AI( self, delta):
+        nextPointIdx, nextPoint = self._getCurrentTargetPoint()
+        if nextPointIdx < self.lastPointIdx and\
+           self.lastPointIdx - nextPointIdx < 2:
+            #report6.report( 'Dont move backwards; last %d next %d' % ( self.lastPointIdx, nextPointIdx))
+            nextPointIdx = self.lastPointIdx
+            nextPoint = self.trackPointsList.list[nextPointIdx]
+        else:
+            self.lastPointIdx = nextPointIdx
+        nextX, nextY = nextPoint
+        # next point angle
+        newAngle = math.atan2( -(nextY - self.pos.y), nextX - self.pos.x)
+        report1.report( 'AI seeking point; idx %d %s' % ( nextPointIdx, nextPoint))
+        #report2.report( 'AI current angle %s; desired angle %s' % ( self.angle, newAngle))
+        # Steer towards point
+        if abs(newAngle - self.angle) > math.radians( 5):
+            #pdb.set_trace()
+            #report3.report( 'AI turning; angle %f; newAngle %f' % ( self.angle, newAngle))
+            diffAngle = newAngle - self.angle
+            if diffAngle < -math.pi or diffAngle > math.pi:
+                diffAngle = self.angle - newAngle
+            if diffAngle < 0:
+                self.startRotatingRight()
+            else:
+                self.startRotatingLeft()
+        else:
+            self.stopRotating()
+
+        # Acclerate based on target speed
+        if not self._brakeForCorner( delta):
+            temp = AITargetSpeed - self.vel.speed()
+            if temp > AITargetSpeedThreshold:
+                self.stopDeceleration()
+                self._startAcceleration()
+            elif temp < -AITargetSpeedThreshold:
+                self.stopAcceleration()
+                self._startDeceleration()
             else:
                 self.stopAcceleration()
                 self.stopDeceleration()
@@ -441,6 +534,8 @@ spaceshipPlayer = PlayerSpaceship( "spaceship1.bmp", PlayerStartLoc, 0,
                              Velocity( (0.0, 0.0)))
 spaceshipComputer = AISpaceship( "spaceship3.bmp", ComputerStartLoc, 0,
                              Velocity((15.0, 0.0)), trackPointsList)
+spaceshipComputer2 = TomSpaceship( "spaceship3.bmp", ComputerStartLoc, 0,
+                             Velocity((15.0, 0.0)), trackPointsList)
 prevTime = time.clock()
 
 
@@ -459,6 +554,7 @@ while 1:
     screen.fill(black)
     pygame.draw.rect( screen, pygame.Color('White'), InnerBorderRect, 1)
     spaceshipComputer.draw()
+    spaceshipComputer2.draw()
     spaceshipPlayer.draw()
     trackPointsList.draw()
     DrawLapCounters( spaceshipPlayer, spaceshipComputer)
@@ -470,6 +566,7 @@ while 1:
     spaceshipComputer.AI( delta)
     spaceshipComputer.move( delta)
     spaceshipComputer.rotate( delta)
+    spaceshipComputer2.update( delta)
     prevTime = currentTime
     
 
