@@ -44,7 +44,7 @@ ScreenRect = pygame.Rect( 0, 0, ScreenWidth, ScreenHeight)
 InnerBorderOffset = 200
 InnerBorderRect = pygame.Rect( InnerBorderOffset, InnerBorderOffset,
                                ScreenWidth - 2*InnerBorderOffset, ScreenHeight - 2*InnerBorderOffset)
-TextRect = pygame.Rect( InnerBorderOffset + InnerBorderRect.width // 4, InnerBorderOffset + 50,
+TextRect = pygame.Rect( InnerBorderOffset + 50, InnerBorderOffset + 50,
                        200, 100)
 PlayerStartLoc = XY( 100, 100)
 ComputerStartLoc = XY( 100, 100)
@@ -139,7 +139,6 @@ class LapCounter():
         else:
             if self.startFinishLine.startFinishLineCollision( shipRect):
                 self.crossedCheckpoint = False
-                print( 't')
                 self.counter += 1
              
 class Velocity( XY):
@@ -179,6 +178,8 @@ class Spaceship:
         self.rotationRate = 0.0
         self._initialRotate()
         self.lapCounter = LapCounter( startFinishLine)
+        self.elapsedLapTime = 0
+        self.lastLapTime = 0
         
     def _updateVel( self, delta):
         self.vel.accelerate( self.acceleration * delta, self.angle)
@@ -260,9 +261,15 @@ class Spaceship:
                 self.lastAngle = self.angle
 
     def update( self, delta):
+        oldLapCounter = self.lapCounter.counter
         self.move( delta)
         self.rotate( delta)
-            
+        if self.lapCounter.counter > oldLapCounter:
+            self.lastLapTime = self.elapsedLapTime
+            self.elapsedLapTime = 0
+        else:
+            self.elapsedLapTime += delta
+        
     def startAcceleration( self):
         self.acceleration = 50
         
@@ -451,11 +458,27 @@ class TrackPointsList:
     def draw( self):
         for p in self.list:
             pygame.draw.circle( screen, White, p.list, 5)
-    
-def DrawLapCounters( playerShip, AIShip):
-    text = "Player laps: %d     Computer laps: %d" % (playerShip.lapCounter.counter, AIShip.lapCounter.counter)
-    textSurface = GameFont.render( text, False, White)
-    screen.blit( textSurface, TextRect)
+
+def DrawText( textLines):
+    tempRect = TextRect.copy()
+    for line in textLines:
+        textSurface = GameFont.render( line, False, White)
+        screen.blit( textSurface, tempRect)
+        wordWidth, wordHeight = textSurface.get_size()
+        tempRect = tempRect.move( 0, wordHeight)
+        
+def DrawInfo( playerShip, AIShip):
+    lines = []
+    text = "Player laps: %d     Computer laps: %d" %\
+        (playerShip.lapCounter.counter, AIShip.lapCounter.counter)
+    lines.append( text)
+    text = "Player speed: %.1f     Computer speed: %.1f"\
+        % (playerShip.vel.speed(), AIShip.vel.speed())
+    lines.append( text)
+    text = "Player laptime: %.1f     Computer laptime: %.1f"\
+        % (playerShip.lastLapTime, AIShip.lastLapTime)
+    lines.append( text)
+    DrawText( lines)
     
 pygame.init()
 
@@ -486,8 +509,8 @@ while 1:
     pygame.draw.rect( screen, White, InnerBorderRect, 1)
     spaceshipComputer.draw()
     spaceshipPlayer.draw()
-    trackPointsList.draw()
-    DrawLapCounters( spaceshipPlayer, spaceshipComputer)
+    #trackPointsList.draw()
+    DrawInfo( spaceshipPlayer, spaceshipComputer)
     startFinishLine.draw()
     pygame.display.flip()
 
