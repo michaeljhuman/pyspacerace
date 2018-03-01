@@ -65,7 +65,7 @@ pygame.font.init() # you have to call this at the start,
 GameFont = pygame.font.SysFont('Comic Sans MS', 20)
     
 # Critical spaceship params
-RotationRate = 2
+MaxRotationRate = 2
 PlayerSpaceshipAcc = 70
 PlayerSpaceshipDec = 70
 AISpaceshipAcc = 70
@@ -75,7 +75,7 @@ MaxSpeed = 500
 
 # Misc
 BounceVelLoss = .5
-AITargetSpeedThreshold = 5
+AITargetSpeedThreshold = 50
 TrackPointListVertCount = 5
 TrackPointListHorzCount = 10
 
@@ -177,8 +177,8 @@ class Spaceship:
         self.originAngle = math.pi / 2 # Angle in radians, with 0 being positive x axis; counterclockwise rotation
         self.angle = angle
         self.lastAngle = angle
-        self.acceleration = 0.0
-        self.rotationRate = 0.0
+        self.acceleration = 0
+        self.rotationRate = 0
         self._initialRotate()
         self.lapCounter = LapCounter( startFinishLine)
         self.elapsedLapTime = 0
@@ -271,28 +271,7 @@ class Spaceship:
             self.elapsedLapTime = 0
         else:
             self.elapsedLapTime += delta
-        
-    def startAcceleration( self):
-        self.acceleration = 50
-        
-    def stopAcceleration( self):
-        self.acceleration = 0
-        
-    def startDeceleration( self):
-        self.acceleration = -50
-
-    def stopDeceleration( self):
-        self.acceleration = 0
-        
-    def startRotatingLeft( self):
-        self.rotationRate = RotationRate
-                               
-    def startRotatingRight( self):
-        self.rotationRate = -RotationRate
-        
-    def stopRotating( self):
-        self.rotationRate = 0
-                               
+                                       
     def draw( self):                    
         # Update screen
         screen.blit( self.image, self.rect)
@@ -309,23 +288,23 @@ class PlayerSpaceship( Spaceship):
 
     def keyDown( self, key):
         if key == ord('w'):
-            self.startAcceleration()
+            self.acceleration = PlayerSpaceshipAcc
         elif key == ord('s'):
-            self.startDeceleration()
+            self.acceleration = -PlayerSpaceshipAcc
         elif key == ord('a'):
-            self.startRotatingLeft()
+            self.rotationRate = MaxRotationRate
         elif key == ord('d'):
-            self.startRotatingRight()
+            self.rotationRate = -MaxRotationRate
             
     def keyUp( self, key):
         if key == ord('w'):
-            self.stopAcceleration()
+            self.acceleration = 0
         elif key == ord('s'):
-            self.stopDeceleration()
+            self.acceleration = 0
         elif key == ord('a'):
-            self.stopRotating()
+            self.rotationRate = 0
         elif key == ord('d'):
-            self.stopRotating()
+            self.rotationRate = 0
     
 class AISpaceship( Spaceship):
     def __init__( self, bitmapFile, initPos, angle, vel,\
@@ -397,24 +376,21 @@ class AISpaceship( Spaceship):
             if diffAngle < -math.pi or diffAngle > math.pi:
                 diffAngle = self.angle - newAngle
             if diffAngle < 0:
-                self.startRotatingRight()
+                self.rotationRate = -MaxRotationRate
             else:
-                self.startRotatingLeft()
+                self.rotationRate = MaxRotationRate
         else:
-            self.stopRotating()
+            self.rotationRate = 0
 
         # Acclerate based on target speed
         if not self.brakeForCorner( delta):
             temp = AITargetSpeed - self.vel.speed()
             if temp > AITargetSpeedThreshold:
-                self.stopDeceleration()
-                self.startAcceleration()
+                self.acceleration = AISpaceshipAcc
             elif temp < -AITargetSpeedThreshold:
-                self.stopAcceleration()
-                self.startDeceleration()
+                self.acceleration = 0
             else:
-                self.stopAcceleration()
-                self.stopDeceleration()
+                self.acceleration = 0
 
     def update( self, delta):
         self.AI( delta)
