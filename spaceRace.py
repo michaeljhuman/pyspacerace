@@ -57,6 +57,7 @@ White = pygame.Color('White')
 
 # Create screen
 screen = pygame.display.set_mode( DisplaySize)
+#screen = pygame.transform.scale( screen, DisplaySize)
 
 # init font
 pygame.font.init() # you have to call this at the start, 
@@ -65,10 +66,10 @@ GameFont = pygame.font.SysFont('Comic Sans MS', 20)
     
 # Critical spaceship params
 RotationRate = 2
-PlayerSpaceshipAcc = 70.0
-PlayerSpaceshipDec = 70.0
-AISpaceshipAcc = 90
-AISpaceshipDec = 90
+PlayerSpaceshipAcc = 70
+PlayerSpaceshipDec = 70
+AISpaceshipAcc = 70
+AISpaceshipDec = 70
 AITargetSpeed = 500
 MaxSpeed = 500
 
@@ -80,7 +81,11 @@ TrackPointListVertCount = 5
 TrackPointListHorzCount = 10
 
 # AI tuning
-CornerApproachMaxThreshold = 300
+CornerApproachAdjust = 1.1 # Increase threshold by some factor
+CornerApproachMaxThresholdX = (ScreenWidth - 2*InnerBorderOffset) // 2 *\
+    CornerApproachAdjust
+CornerApproachMaxThresholdY = (ScreenHeight - 2*InnerBorderOffset) // 2 *\
+    CornerApproachAdjust                              
 CornerApproachMinThreshold = 50
 CornerApproachSpeed = MaxSpeed*.3
 
@@ -106,7 +111,6 @@ report3 = Report( .5)
 report4 = Report( .5)
 report5 = Report( .5)
 report6 = Report( .1)
-report7 = Report( .3)
             
 class StartFinishLine:
     def __init__( self):
@@ -243,22 +247,21 @@ class Spaceship:
         
     def rotate( self, delta):
         self._updateAngle( delta)
-        if abs(self.angle - self.lastAngle) > RotationThreshold:
-            # Rotate image
-            rotationAngle = math.degrees( self.angle - self.originAngle)
-            tempImage = pygame.transform.rotate( self.imageCopy, rotationAngle)
-            tempRect = tempImage.get_rect( center=self.rect.center)
-            collided = False
-            if not screen.get_rect().contains( tempRect):
-                collided = True
-            if tempRect.colliderect( InnerBorderRect):
-                collided = True
-            if collided:
-                self.angle = self.lastAngle
-            else:
-                self.image = tempImage
-                self.rect = tempRect
-                self.lastAngle = self.angle
+        # Rotate image
+        rotationAngle = math.degrees( self.angle - self.originAngle)
+        tempImage = pygame.transform.rotate( self.imageCopy, rotationAngle)
+        tempRect = tempImage.get_rect( center=self.rect.center)
+        collided = False
+        if not screen.get_rect().contains( tempRect):
+            collided = True
+        if tempRect.colliderect( InnerBorderRect):
+            collided = True
+        if collided:
+            self.angle = self.lastAngle
+        else:
+            self.image = tempImage
+            self.rect = tempRect
+            self.lastAngle = self.angle
 
     def update( self, delta):
         oldLapCounter = self.lapCounter.counter
@@ -338,9 +341,13 @@ class AISpaceship( Spaceship):
         self.acceleration = -AISpaceshipDec
 
     def nearCorner( self):
+        if abs(self.vel.x) > abs(self.vel.y):
+            cornerApproachMaxThreshold = CornerApproachMaxThresholdX
+        else:
+            cornerApproachMaxThreshold = CornerApproachMaxThresholdY
         for p in TrackCorners:
-            if p.distance( self.pos) <= CornerApproachMaxThreshold\
-                and p.distance( self.pos) >= CornerApproachMinThreshold:
+            if p.distance( self.pos) >= CornerApproachMinThreshold\
+                and p.distance( self.pos) <= cornerApproachMaxThreshold:
                 return p
         return None
 
@@ -362,7 +369,7 @@ class AISpaceship( Spaceship):
         cornerPoint = self.nearCorner()
         if cornerPoint != None and self.vel.speed() > CornerApproachSpeed\
            and self.movingTowards( cornerPoint, delta):
-            report4.report( 'Braking for corner %s; distance %.1f' %\
+            report1.report( 'Braking for corner %s; distance %.1f' %\
                 (str(cornerPoint), cornerPoint.distance( self.pos)))
             self.startDeceleration()
             return True
@@ -373,7 +380,7 @@ class AISpaceship( Spaceship):
         nextPointIdx, nextPoint = self.getCurrentTargetPoint()
         if nextPointIdx < self.lastPointIdx and\
            self.lastPointIdx - nextPointIdx < 2:
-            #report6.report( 'Dont move backwards; last %d next %d' % ( self.lastPointIdx, nextPointIdx))
+            #report2.report( 'Dont move backwards; last %d next %d' % ( self.lastPointIdx, nextPointIdx))
             nextPointIdx = self.lastPointIdx
             nextPoint = self.trackPointsList.list[nextPointIdx]
         else:
@@ -381,12 +388,12 @@ class AISpaceship( Spaceship):
         nextX, nextY = nextPoint
         # next point angle
         newAngle = math.atan2( -(nextY - self.pos.y), nextX - self.pos.x)
-        #report1.report( 'AI seeking point; idx %d %s' % ( nextPointIdx, nextPoint))
-        #report2.report( 'AI current angle %s; desired angle %s' % ( self.angle, newAngle))
+        #report3.report( 'AI seeking point; idx %d %s' % ( nextPointIdx, nextPoint))
+        #report4.report( 'AI current angle %s; desired angle %s' % ( self.angle, newAngle))
         # Steer towards point
         if abs(newAngle - self.angle) > math.radians( 5):
             #pdb.set_trace()
-            #report3.report( 'AI turning; angle %f; newAngle %f' % ( self.angle, newAngle))
+            #report5.report( 'AI turning; angle %f; newAngle %f' % ( self.angle, newAngle))
             diffAngle = newAngle - self.angle
             if diffAngle < -math.pi or diffAngle > math.pi:
                 diffAngle = self.angle - newAngle
@@ -472,10 +479,10 @@ def DrawInfo( playerShip, AIShip):
     text = "Player laps: %d     Computer laps: %d" %\
         (playerShip.lapCounter.counter, AIShip.lapCounter.counter)
     lines.append( text)
-    text = "Player speed: %.1f     Computer speed: %.1f"\
+    text = "Player speed: %.0f     Computer speed: %.0f"\
         % (playerShip.vel.speed(), AIShip.vel.speed())
     lines.append( text)
-    text = "Player laptime: %.1f     Computer laptime: %.1f"\
+    text = "Player laptime: %.2f     Computer laptime: %.2f"\
         % (playerShip.lastLapTime, AIShip.lastLapTime)
     lines.append( text)
     DrawText( lines)
@@ -509,7 +516,7 @@ while 1:
     pygame.draw.rect( screen, White, InnerBorderRect, 1)
     spaceshipComputer.draw()
     spaceshipPlayer.draw()
-    #trackPointsList.draw()
+    trackPointsList.draw()
     DrawInfo( spaceshipPlayer, spaceshipComputer)
     startFinishLine.draw()
     pygame.display.flip()
