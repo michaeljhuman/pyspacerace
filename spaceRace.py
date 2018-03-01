@@ -561,7 +561,7 @@ spaceshipPlayer = PlayerSpaceship( "spaceship1.bmp", PlayerStartLoc, 0,
 spaceshipComputer = AISpaceship( "spaceship3.bmp", ComputerStartLoc, 0,
                                  Velocity( 15.0, 0.0), startFinishLine,
                                  trackPointsList)
-spaceshipComputer2 = TomSpaceship( "spaceship1.bmp", XY(100,100), 0,
+spaceshipComputer2 = TomSpaceship( "spaceship4.bmp", XY(100,100), 0,
                                    Velocity( 15.0, 0.0), startFinishLine,
                                    trackPointsList)
 
