@@ -436,7 +436,7 @@ class TomSpaceship( Spaceship):
         return distShip < distPoints
 
     def AI(self, delta):
-        targetSpeed = 4.0*AISpaceshipAcc
+        targetSpeed = 8.0*AISpaceshipAcc
         tooFast = targetSpeed
         tooSlow = targetSpeed - targetSpeed/3.0
 
@@ -455,7 +455,7 @@ class TomSpaceship( Spaceship):
         if relSpeed*2.0 < targetSpeed:
             self.thrustMode += 1
         if max(relSpeed*2.0, trueSpeed) > tooFast:
-            self.thrustMode = -6
+            self.thrustMode = -10
         
         trackList = self.trackLists[idx]
         positionLine = XY(trackList[0].x-self.pos.x,trackList[0].y-self.pos.y)
