@@ -75,7 +75,6 @@ MaxSpeed = 500
 
 # Misc
 BounceVelLoss = .5
-RotationThreshold = math.radians( 5)
 AITargetSpeedThreshold = 5
 TrackPointListVertCount = 5
 TrackPointListHorzCount = 10
