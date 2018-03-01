@@ -280,12 +280,6 @@ class PlayerSpaceship( Spaceship):
     def __init__( self, bitmapFile, initPos, angle, vel, startFinishLine):
         Spaceship.__init__( self, bitmapFile, initPos, angle, vel, startFinishLine)
         
-    def startAcceleration( self):
-        self.acceleration = PlayerSpaceshipAcc
-                
-    def startDeceleration( self):
-        self.acceleration = -PlayerSpaceshipDec
-
     def keyDown( self, key):
         if key == ord('w'):
             self.acceleration = PlayerSpaceshipAcc
@@ -312,11 +306,6 @@ class AISpaceship( Spaceship):
         Spaceship.__init__( self, bitmapFile, initPos, angle, vel, startFinishLine)
         self.lastPointIdx = -1
         self.trackPointsList = trackPointsList
-    def startAcceleration( self):
-        self.acceleration = AISpaceshipAcc
-                
-    def startDeceleration( self):
-        self.acceleration = -AISpaceshipDec
 
     def nearCorner( self):
         if abs(self.vel.x) > abs(self.vel.y):
@@ -349,7 +338,7 @@ class AISpaceship( Spaceship):
            and self.movingTowards( cornerPoint, delta):
             report1.report( 'Braking for corner %s; distance %.1f' %\
                 (str(cornerPoint), cornerPoint.distance( self.pos)))
-            self.startDeceleration()
+            self.acceleration = -PlayerSpaceshipDec
             return True
         else:
             return False
@@ -388,7 +377,7 @@ class AISpaceship( Spaceship):
             if temp > AITargetSpeedThreshold:
                 self.acceleration = AISpaceshipAcc
             elif temp < -AITargetSpeedThreshold:
-                self.acceleration = 0
+                self.acceleration = -AISpaceshipDec
             else:
                 self.acceleration = 0
 
