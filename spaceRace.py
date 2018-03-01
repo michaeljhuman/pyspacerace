@@ -549,6 +549,13 @@ def DrawInfo( playerShip, AIShip):
     text = "Player laptime: %.2f     Computer laptime: %.2f"\
         % (playerShip.lastLapTime, AIShip.lastLapTime)
     lines.append( text)
+    text = "Tom speed: %.2f     Tom laptime: %.2f"\
+        % (spaceshipComputer2.vel.speed(), spaceshipComputer2.lastLapTime)
+    lines.append( text)
+    text = "Tom laps: %d     Tom laptime: %.2f     Tom speed %.0f"\
+        % (spaceshipComputer2.lapCounter.counter, spaceshipComputer2.vel.speed(),
+           spaceshipComputer2.lastLapTime)
+    lines.append( text)
     DrawText( lines)
     
 pygame.init()
@@ -559,41 +566,43 @@ startFinishLine = StartFinishLine()
 spaceshipPlayer = PlayerSpaceship( "spaceship1.bmp", PlayerStartLoc, 0,
     Velocity( 0.0, 0.0), startFinishLine)
 spaceshipComputer = AISpaceship( "spaceship3.bmp", ComputerStartLoc, 0,
-                                 Velocity( 15.0, 0.0), startFinishLine,
+                                 Velocity( 0.0, 0.0), startFinishLine,
                                  trackPointsList)
 spaceshipComputer2 = TomSpaceship( "spaceship4.bmp", XY(100,100), 0,
-                                   Velocity( 15.0, 0.0), startFinishLine,
+                                   Velocity( 0.0, 0.0), startFinishLine,
                                    trackPointsList)
 
 prevTime = time.clock()
 
+pause = False
 while 1:
     currentTime = time.clock()
-
+    
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
         elif event.type == pygame.KEYDOWN:
+            pause = False
             spaceshipPlayer.keyDown( event.key)
         elif event.type == pygame.KEYUP:
             spaceshipPlayer.keyUp( event.key)
+    if not pause:
+        screen.fill( Black)
+        pygame.draw.rect( screen, White, InnerBorderRect, 1)
+        spaceshipComputer.draw()
+        spaceshipComputer2.draw()
+        spaceshipPlayer.draw()
+        trackPointsList.draw()
+        DrawInfo( spaceshipPlayer, spaceshipComputer)
+        startFinishLine.draw()
+        pygame.display.flip()
 
-    screen.fill( Black)
-    pygame.draw.rect( screen, White, InnerBorderRect, 1)
-    spaceshipComputer.draw()
-    spaceshipComputer2.draw()
-    spaceshipPlayer.draw()
-    trackPointsList.draw()
-    DrawInfo( spaceshipPlayer, spaceshipComputer)
-    startFinishLine.draw()
-    pygame.display.flip()
-
-    delta = currentTime - prevTime
-    spaceshipPlayer.update( delta)
-    spaceshipComputer.update( delta)
-    spaceshipComputer2.update( delta)
-    prevTime = currentTime
+        delta = currentTime - prevTime
+        spaceshipPlayer.update( delta)
+        spaceshipComputer.update( delta)
+        spaceshipComputer2.update( delta)
+        prevTime = currentTime
     
 
     
