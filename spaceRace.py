@@ -74,7 +74,8 @@ AITargetSpeed = 500
 MaxSpeed = 500
 
 # Misc
-BounceVelLoss = .5
+BounceVelLoss = .8
+
 AITargetSpeedThreshold = 50
 TrackPointListVertCount = 5
 TrackPointListHorzCount = 10
@@ -566,15 +567,15 @@ startFinishLine = StartFinishLine()
 spaceshipPlayer = PlayerSpaceship( "spaceship1.bmp", PlayerStartLoc, 0,
     Velocity( 0.0, 0.0), startFinishLine)
 spaceshipComputer = AISpaceship( "spaceship3.bmp", ComputerStartLoc, 0,
-                                 Velocity( 0.0, 0.0), startFinishLine,
+                                 Velocity( 0, 0), startFinishLine,
                                  trackPointsList)
 spaceshipComputer2 = TomSpaceship( "spaceship4.bmp", XY(100,100), 0,
-                                   Velocity( 0.0, 0.0), startFinishLine,
+                                   Velocity( 0, 0), startFinishLine,
                                    trackPointsList)
 
 prevTime = time.clock()
 
-pause = False
+pause = True
 while 1:
     currentTime = time.clock()
     
@@ -587,22 +588,22 @@ while 1:
             spaceshipPlayer.keyDown( event.key)
         elif event.type == pygame.KEYUP:
             spaceshipPlayer.keyUp( event.key)
-    if not pause:
-        screen.fill( Black)
-        pygame.draw.rect( screen, White, InnerBorderRect, 1)
-        spaceshipComputer.draw()
-        spaceshipComputer2.draw()
-        spaceshipPlayer.draw()
-        trackPointsList.draw()
-        DrawInfo( spaceshipPlayer, spaceshipComputer)
-        startFinishLine.draw()
-        pygame.display.flip()
+            
+    screen.fill( Black)
+    pygame.draw.rect( screen, White, InnerBorderRect, 1)
+    spaceshipComputer.draw()
+    spaceshipComputer2.draw()
+    spaceshipPlayer.draw()
+    trackPointsList.draw()
+    DrawInfo( spaceshipPlayer, spaceshipComputer)
+    startFinishLine.draw()
+    pygame.display.flip()
 
-        delta = currentTime - prevTime
+    delta = currentTime - prevTime
+    if not pause:
         spaceshipPlayer.update( delta)
         spaceshipComputer.update( delta)
         spaceshipComputer2.update( delta)
-        prevTime = currentTime
+    prevTime = currentTime
     
-
     
