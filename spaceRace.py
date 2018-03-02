@@ -74,7 +74,7 @@ AITargetSpeed = 500
 MaxSpeed = 500
 
 # Misc
-BounceVelLoss = .8
+BounceVelLoss = 0.8
 
 AITargetSpeedThreshold = 50
 TrackPointListVertCount = 5
@@ -437,7 +437,7 @@ class TomSpaceship( Spaceship):
         return distShip < distPoints
 
     def AI(self, delta):
-        targetSpeed = 8.0*AISpaceshipAcc
+        targetSpeed = (12.0-8.0*BounceVelLoss)*AISpaceshipAcc #(10.0 - 10.0*BounceVelLoss)*AISpaceshipAcc
         tooFast = targetSpeed
         tooSlow = targetSpeed - targetSpeed/3.0
 
