@@ -23,6 +23,8 @@ class XY:
         return Distance( self, p)
     def copy( self):
         return XY( self.x, self.y)
+    def copyWithOffset( self, o):
+        return XY( self.x + o[0], self.y + o[1])
     def __getitem__( self, idx):
         if idx >= len( self.list):
             raise IndexError()
@@ -46,8 +48,11 @@ InnerBorderRect = pygame.Rect( InnerBorderOffset, InnerBorderOffset,
                                ScreenWidth - 2*InnerBorderOffset, ScreenHeight - 2*InnerBorderOffset)
 TextRect = pygame.Rect( InnerBorderOffset + 50, InnerBorderOffset + 50,
                        200, 100)
-PlayerStartLoc = XY( 100, 100)
-ComputerStartLoc = XY( 100, 100)
+
+PlayerStartLoc = XY( 100, 50)
+AI1StartLoc = PlayerStartLoc.copyWithOffset( ( 0, 50))
+AI2StartLoc = AI1StartLoc.copyWithOffset( ( 0, 50))
+
 TrackCorners = ( XY( InnerBorderOffset // 2, InnerBorderOffset // 2),
     XY( ScreenWidth - InnerBorderOffset // 2, InnerBorderOffset // 2),
     XY( ScreenWidth - InnerBorderOffset // 2, ScreenHeight - InnerBorderOffset // 2),
@@ -62,7 +67,8 @@ screen = pygame.display.set_mode( DisplaySize)
 # init font
 pygame.font.init() # you have to call this at the start, 
                    # if you want to use this module.
-GameFont = pygame.font.SysFont('Comic Sans MS', 20)
+#GameFont = pygame.font.SysFont('Comic Sans MS', 20)
+GameFont = pygame.font.SysFont('Courier New', 20)
     
 # Critical spaceship params
 MaxRotationRate = 2
@@ -74,7 +80,7 @@ AITargetSpeed = 500
 MaxSpeed = 500
 
 # Misc
-BounceVelLoss = 0.8
+BounceVelLoss = .5
 
 AITargetSpeedThreshold = 50
 TrackPointListVertCount = 5
@@ -177,9 +183,12 @@ class Spaceship:
         self.vel = vel
         self.pos = initPos
         self.image = pygame.image.load( bitmapFile)
-        self.imageCopy = self.image.copy()
+        self.image.set_colorkey((0,0,0))
         self.rect = self.image.get_rect()
-        self.rect = self.rect.move( initPos.x, initPos.y)
+        self.rect.centerx = initPos.x
+        self.rect.centery = initPos.y
+        #self.rect = self.rect.move( initPos.x, initPos.y)
+        self.imageCopy = self.image.copy()
         self.originAngle = math.pi / 2 # Angle in radians, with 0 being positive x axis; counterclockwise rotation
         self.angle = angle
         self.lastAngle = angle
@@ -306,7 +315,7 @@ class PlayerSpaceship( Spaceship):
         elif key == ord('d'):
             self.rotationRate = 0
     
-class AISpaceship( Spaceship):
+class AI1Spaceship( Spaceship):
     def __init__( self, bitmapFile, initPos, angle, vel,\
                   startFinishLine, trackPointsList):
         Spaceship.__init__( self, bitmapFile, initPos, angle, vel, startFinishLine)
@@ -342,8 +351,8 @@ class AISpaceship( Spaceship):
         cornerPoint = self.nearCorner()
         if cornerPoint != None and self.vel.speed() > CornerApproachSpeed\
            and self.movingTowards( cornerPoint, delta):
-            report1.report( 'Braking for corner %s; distance %.1f' %\
-                (str(cornerPoint), cornerPoint.distance( self.pos)))
+            #report1.report( 'Braking for corner %s; distance %.1f' %\
+            #    (str(cornerPoint), cornerPoint.distance( self.pos)))
             self.acceleration = -PlayerSpaceshipDec
             return True
         else:
@@ -391,7 +400,7 @@ class AISpaceship( Spaceship):
             else:
                 self.acceleration = 0
 
-class TomSpaceship( Spaceship):
+class AI2Spaceship( Spaceship):
     def __init__( self, bitmapFile, initPos, angle, vel,\
                   startFinishLine, trackPointsList):
         Spaceship.__init__( self, bitmapFile, initPos, angle, vel, startFinishLine)
@@ -437,7 +446,7 @@ class TomSpaceship( Spaceship):
         return distShip < distPoints
 
     def AI(self, delta):
-        targetSpeed = (12.0-8.0*BounceVelLoss)*AISpaceshipAcc #(10.0 - 10.0*BounceVelLoss)*AISpaceshipAcc
+        targetSpeed = 8.0*AISpaceshipAcc
         tooFast = targetSpeed
         tooSlow = targetSpeed - targetSpeed/3.0
 
@@ -538,24 +547,19 @@ def DrawText( textLines):
         screen.blit( textSurface, tempRect)
         wordWidth, wordHeight = textSurface.get_size()
         tempRect = tempRect.move( 0, wordHeight)
-        
-def DrawInfo( playerShip, AIShip):
+
+def DrawInfo( playerShip, ai1Spaceship, ai2Spaceship):
     lines = []
-    text = "Player laps: %d     Computer laps: %d" %\
-        (playerShip.lapCounter.counter, AIShip.lapCounter.counter)
+    text = "%-10s%-10s%-10s%-10s" % ( '', 'Laps', 'Speed', 'Laptime')
     lines.append( text)
-    text = "Player speed: %.0f     Computer speed: %.0f"\
-        % (playerShip.vel.speed(), AIShip.vel.speed())
+    text = "%-10s%-10d%-10.0f%-10.2f" % ( 'Player', playerShip.lapCounter.counter,
+        playerShip.vel.speed(), playerShip.lastLapTime)
     lines.append( text)
-    text = "Player laptime: %.2f     Computer laptime: %.2f"\
-        % (playerShip.lastLapTime, AIShip.lastLapTime)
+    text = "%-10s%-10d%-10.0f%-10.2f" % ( 'AI1', ai1Spaceship.lapCounter.counter,
+        ai1Spaceship.vel.speed(), ai1Spaceship.lastLapTime)
     lines.append( text)
-    text = "Tom speed: %.2f     Tom laptime: %.2f"\
-        % (spaceshipComputer2.vel.speed(), spaceshipComputer2.lastLapTime)
-    lines.append( text)
-    text = "Tom laps: %d     Tom laptime: %.2f     Tom speed %.0f"\
-        % (spaceshipComputer2.lapCounter.counter, spaceshipComputer2.vel.speed(),
-           spaceshipComputer2.lastLapTime)
+    text = "%-10s%-10d%-10.0f%-10.2f" % ( 'AI2', ai2Spaceship.lapCounter.counter,
+        ai2Spaceship.vel.speed(), ai2Spaceship.lastLapTime)
     lines.append( text)
     DrawText( lines)
     
@@ -564,12 +568,12 @@ pygame.init()
 trackPointsList = TrackPointsList()
 startFinishLine = StartFinishLine()
 
-spaceshipPlayer = PlayerSpaceship( "spaceship1.bmp", PlayerStartLoc, 0,
-    Velocity( 0.0, 0.0), startFinishLine)
-spaceshipComputer = AISpaceship( "spaceship3.bmp", ComputerStartLoc, 0,
+playerSpaceship = PlayerSpaceship( "spaceship1.bmp", PlayerStartLoc, 0,
+    Velocity( 0, 0), startFinishLine)
+ai1Spaceship = AI1Spaceship( "spaceship3.bmp", AI1StartLoc, 0,
                                  Velocity( 0, 0), startFinishLine,
                                  trackPointsList)
-spaceshipComputer2 = TomSpaceship( "spaceship4.bmp", XY(100,100), 0,
+ai2Spaceship = AI2Spaceship( "spaceship4.bmp", AI2StartLoc, 0,
                                    Velocity( 0, 0), startFinishLine,
                                    trackPointsList)
 
@@ -585,25 +589,25 @@ while 1:
             sys.exit()
         elif event.type == pygame.KEYDOWN:
             pause = False
-            spaceshipPlayer.keyDown( event.key)
+            playerSpaceship.keyDown( event.key)
         elif event.type == pygame.KEYUP:
-            spaceshipPlayer.keyUp( event.key)
+            playerSpaceship.keyUp( event.key)
             
     screen.fill( Black)
     pygame.draw.rect( screen, White, InnerBorderRect, 1)
-    spaceshipComputer.draw()
-    spaceshipComputer2.draw()
-    spaceshipPlayer.draw()
-    trackPointsList.draw()
-    DrawInfo( spaceshipPlayer, spaceshipComputer)
+    ai1Spaceship.draw()
+    ai2Spaceship.draw()
+    playerSpaceship.draw()
+    #trackPointsList.draw()
+    DrawInfo( playerSpaceship, ai1Spaceship, ai2Spaceship)
     startFinishLine.draw()
     pygame.display.flip()
 
     delta = currentTime - prevTime
     if not pause:
-        spaceshipPlayer.update( delta)
-        spaceshipComputer.update( delta)
-        spaceshipComputer2.update( delta)
+        playerSpaceship.update( delta)
+        ai1Spaceship.update( delta)
+        ai2Spaceship.update( delta)
     prevTime = currentTime
     
     
