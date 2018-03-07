@@ -446,7 +446,7 @@ class AI2Spaceship( Spaceship):
         return distShip < distPoints
 
     def AI(self, delta):
-        targetSpeed = 8.0*AISpaceshipAcc
+        targetSpeed = (12.0-8.0*BounceVelLoss)*AISpaceshipAcc
         tooFast = targetSpeed
         tooSlow = targetSpeed - targetSpeed/3.0
 
